@@ -333,7 +333,7 @@ func (b *shaderArrayBuilder) buildL1VTLBs(sa *shaderArray) {
 		WithFreq(b.freq).
 		WithNumMSHREntry(4).
 		WithNumSets(1).
-		WithNumWays(64).
+		WithNumWays(16).
 		WithNumReqPerCycle(4)
 
 	for i := 0; i < b.numCU; i++ {
@@ -411,7 +411,7 @@ func (b *shaderArrayBuilder) buildL1STLB(sa *shaderArray) {
 		WithFreq(b.freq).
 		WithNumMSHREntry(4).
 		WithNumSets(1).
-		WithNumWays(64).
+		WithNumWays(16).
 		WithNumReqPerCycle(4)
 
 	name := fmt.Sprintf("%s.L1STLB", b.name)
@@ -485,7 +485,7 @@ func (b *shaderArrayBuilder) buildL1ITLB(sa *shaderArray) {
 		WithFreq(b.freq).
 		WithNumMSHREntry(4).
 		WithNumSets(1).
-		WithNumWays(64).
+		WithNumWays(16).
 		WithNumReqPerCycle(4)
 
 	name := fmt.Sprintf("%s.L1ITLB", b.name)

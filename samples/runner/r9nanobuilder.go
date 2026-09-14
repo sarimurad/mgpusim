@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	rob2 "github.com/sarchlab/mgpusim/v3/timing/rob"
-
+	"github.com/tebeka/atexit"
 	"github.com/sarchlab/akita/v3/analysis"
 	"github.com/sarchlab/akita/v3/mem/cache/writearound"
 	"github.com/sarchlab/akita/v3/mem/cache/writeback"
@@ -815,18 +815,22 @@ func (b *R9NanoGPUBuilder) buildCP() {
 }
 
 func (b *R9NanoGPUBuilder) buildL2TLB() {
-	numWays := 64
+	numWays := 8
 	builder := tlb.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithNumWays(numWays).
-		WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
+		WithNumSets(256).
 		WithNumMSHREntry(64).
 		WithNumReqPerCycle(1024).
 		WithPageSize(1 << b.log2PageSize).
 		WithLowModule(b.mmu.GetPortByName("Top"))
 
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.gpuName))
+	atexit.Register(func() {
+		fmt.Printf(">>> L2TLB evict: valid=%d invalid=%d  (sets=%d ways=%d)\n",
+			l2TLB.EvictValid, l2TLB.EvictInvalid, 256, numWays)
+	})
 	b.l2TLBs = append(b.l2TLBs, l2TLB)
 	b.gpu.L2TLBs = append(b.gpu.L2TLBs, l2TLB)
 
