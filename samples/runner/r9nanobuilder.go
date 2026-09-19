@@ -828,8 +828,8 @@ func (b *R9NanoGPUBuilder) buildL2TLB() {
 
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.gpuName))
 	atexit.Register(func() {
-		fmt.Printf(">>> L2TLB evict: valid=%d invalid=%d  (sets=%d ways=%d)\n",
-			l2TLB.EvictValid, l2TLB.EvictInvalid, 256, numWays)
+		fmt.Printf(">>> L2TLB evict: valid=%d invalid=%d crossPID=%d  (sets=%d ways=%d)\n",
+			l2TLB.EvictValid, l2TLB.EvictInvalid, l2TLB.EvictCrossPID, 256, numWays)
 	})
 	b.l2TLBs = append(b.l2TLBs, l2TLB)
 	b.gpu.L2TLBs = append(b.gpu.L2TLBs, l2TLB)
