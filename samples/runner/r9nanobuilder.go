@@ -88,7 +88,7 @@ func MakeR9NanoGPUBuilder() R9NanoGPUBuilder {
 		numCUPerShaderArray:            4,
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
-		log2PageSize:                   12,
+		log2PageSize:                   16,
 		log2MemoryBankInterleavingSize: 12,
 		l2CacheSize:                    2 * mem.MB,
 		dramSize:                       4 * mem.GB,
