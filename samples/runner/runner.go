@@ -274,6 +274,12 @@ func (r *Runner) Driver() *driver.Driver {
 	return r.platform.Driver
 }
 
+// Platform exposes the built platform so external drivers can reach its
+// components, such as the L2 TLBs, for instrumentation.
+func (r *Runner) Platform() *Platform {
+	return r.platform
+}
+
 // Engine returns the event-driven simulation engine used by the current runner.
 func (r *Runner) Engine() sim.Engine {
 	return r.platform.Engine
