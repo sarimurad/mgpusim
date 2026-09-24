@@ -43,6 +43,7 @@ var (
 	outFlag    = flag.String("out", "matrix.csv", "Output CSV for the [R,256] matrix.")
 	attackPID  = flag.Uint("attacker-pid", 9000, "PID the attacker primes under.")
 	regionMB   = flag.Uint64("region-mb", 1, "Region stride in MB for eviction sets.")
+	rekeyFlag = flag.Int("rekeys", 0, "Number of key rotations during victim execution (0 = static key).")
 )
 
 func main() {
@@ -59,17 +60,17 @@ func main() {
 	ways := l2.NumWays()
 	stride := *regionMB << 20
 
-	esets := make([]tlb.EvictionSet, numSets)
-	for s := 0; s < numSets; s++ {
-		esets[s] = l2.BuildEvictionSet(vm.PID(*attackPID), s, ways, stride)
-	}
-
 	matrix := make([][]int, *roundsFlag)
 	for i := range matrix {
 		matrix[i] = make([]int, numSets)
 	}
 
 	if *idleFlag {
+		l2.Rekey(0)
+		esets := make([]tlb.EvictionSet, numSets)
+		for s := 0; s < numSets; s++ {
+			esets[s] = l2.BuildEvictionSet(vm.PID(*attackPID), s, ways, stride)
+		}
 		for s := range esets {
 			l2.Prime(esets[s])
 		}
@@ -81,6 +82,12 @@ func main() {
 		writeMatrix(*outFlag, matrix)
 		fmt.Printf(">>> idle control written to %s (expect all zero)\n", *outFlag)
 		return
+	}
+
+	l2.Rekey(0)
+	esets := make([]tlb.EvictionSet, numSets)
+	for s := 0; s < numSets; s++ {
+		esets[s] = l2.BuildEvictionSet(vm.PID(*attackPID), s, ways, stride)
 	}
 
 	victim := matrixmultiplication.NewBenchmark(r.Driver())
@@ -98,15 +105,20 @@ func main() {
 	// registered as an atexit handler. It fires after the victim has finished
 	// but before the process exits.
 	atexit.Register(func() {
+		recoverable := 0
 		for s := range esets {
-			matrix[0][s] = l2.Contention(esets[s])
+			recoverable += l2.Contention(esets[s])
 		}
-		fmt.Printf(">>> after victim: L2 evictValid=%d crossPID=%d subFill=%d\n",
+
+		effective := float64(recoverable)
+		if *rekeyFlag > 0 {
+			effective = float64(recoverable) / float64(*rekeyFlag+1)
+		}
+
+		fmt.Printf(">>> rekeys=%d  raw-contention=%d  recoverable=%.1f\n",
+			*rekeyFlag, recoverable, effective)
+		fmt.Printf(">>> L2 evictValid=%d crossPID=%d subFill=%d\n",
 			l2.EvictValid, l2.EvictCrossPID, l2.SubEntryFill)
-		writeMatrix(*outFlag, matrix)
-		fmt.Printf(">>> contention matrix [%d x %d] written to %s\n",
-			*roundsFlag, numSets, *outFlag)
-		summarize(matrix, ways)
 	})
 
 	r.Run()
