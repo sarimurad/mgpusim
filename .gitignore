@@ -32,3 +32,10 @@ __debug_bin
 samples/**/metrics.csv
 
 test
+
+# build outputs and local backups (gpu-tlb-sidechannel)
+*.orig
+*.small256
+samples/primeprobe/primeprobe
+samples/twotenant/twotenant
+samples/*/*.csv
