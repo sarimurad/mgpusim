@@ -39,3 +39,6 @@ test
 samples/primeprobe/primeprobe
 samples/twotenant/twotenant
 samples/*/*.csv
+samples/liverekey/liverekey
+samples/liverekey/runs/
+samples/liverekey/*.npz
