@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # Runs the live re-key sweep, then analyze.py. A full 1024^3 sweep takes
-# ~2 h, so start it in the background and watch runs/*.log:
+# ~2 h, so start it in the background and watch results/live-rekey/runs/*.log:
 #
-#   nohup ./run_sweep.sh > runs/sweep.log 2>&1 &
+#   nohup ./run_sweep.sh > ../../../results/live-rekey/runs/sweep.log 2>&1 &
+#
+# Outputs go to ~/ENCS5300/results/live-rekey/: raw runs in runs/, the
+# analysis (tables, plot, .npz traces) in analysis/.
 #
 # X, Y, Z and ROUND_CYCLES override the victim size and round length (for a
-# quick smoke test, e.g. X=256 Y=256 Z=256 ROUND_CYCLES=20000 RUNS=smoke).
+# quick smoke test, e.g. X=256 Y=256 Z=256 ROUND_CYCLES=20000
+# RUNS=/tmp/smoke OUT=/tmp/smoke).
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,8 +17,10 @@ cd "$here"
 
 X="${X:-1024}" Y="${Y:-1024}" Z="${Z:-1024}"
 ROUND_CYCLES="${ROUND_CYCLES:-177984}"
-RUNS="${RUNS:-runs}"
-mkdir -p "$RUNS"
+RESULTS="$here/../../../results/live-rekey"
+RUNS="${RUNS:-$RESULTS/runs}"
+OUT="${OUT:-$RESULTS/analysis}"
+mkdir -p "$RUNS" "$OUT"
 
 go build -o liverekey . || { echo "build failed"; exit 1; }
 
@@ -41,4 +47,4 @@ done
 # Uses ~/ENCS5300/.venv (numpy, pandas, matplotlib) when present.
 PY="${PYTHON:-python3}"
 [ -x "$here/../../../.venv/bin/python" ] && PY="${PYTHON:-$here/../../../.venv/bin/python}"
-"$PY" analyze.py --runs-dir "$RUNS" --output-dir "$RUNS"
+"$PY" analyze.py --runs-dir "$RUNS" --output-dir "$OUT"
