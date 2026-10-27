@@ -25,6 +25,10 @@ type GPUMatrixMultiplier struct {
 	gpus             []int
 	kernel           *insts.HsaCo
 	useUnifiedMemory bool
+
+	// Repeat launches the kernel this many times on the same buffers
+	// (default 1). It lengthens a run without changing its memory footprint.
+	Repeat int
 }
 
 // NewGPUMatrixMultiplier creates a new GPUMatrixMultiplier, injecting the
@@ -66,7 +70,13 @@ func (m *GPUMatrixMultiplier) Multiply(mA, mB *Matrix) *Matrix {
 
 	m.loadKernel()
 	gA, gB, gC := m.initMemory(mA, mB, mC)
-	m.launchKernel(gA, gB, gC, mA, mC)
+	n := m.Repeat
+	if n < 1 {
+		n = 1
+	}
+	for i := 0; i < n; i++ {
+		m.launchKernel(gA, gB, gC, mA, mC)
+	}
 	m.copyDataBackFromGPU(mC, gC)
 
 	return mC

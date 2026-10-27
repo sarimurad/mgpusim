@@ -43,6 +43,7 @@ var (
 	seedFlag    = flag.Uint64("seed", 1234, "Seed for deterministic key generation.")
 	attackerPID = flag.Uint("attacker-pid", 9000, "PID used for the simulated attacker probe.")
 	regionMB    = flag.Uint64("region-mb", 1, "Address stride in MB for attacker eviction sets.")
+	repeatFlag  = flag.Int("repeat", 1, "Launch the victim kernel this many times on the same buffers, so it stays active for more rounds (k>=16 needs this).")
 )
 
 // gpuFreqHz is the R9 Nano GPU clock (r9nanobuilder.go).
@@ -76,6 +77,7 @@ type summary struct {
 	Idle            bool    `json:"idle"`
 	Seed            uint64  `json:"seed"`
 	RoundCycles     int     `json:"round_cycles"`
+	Repeat          int     `json:"repeat"`
 	Capped          bool    `json:"capped_by_max_rounds"`
 	AccountingMatch bool    `json:"accounting_match"`
 	Measurement     string  `json:"measurement"`
@@ -112,8 +114,8 @@ type recorder struct {
 
 func main() {
 	flag.Parse()
-	if *roundCycles <= 0 || *rekeyEvery < 0 || *maxRounds < 0 || *regionMB == 0 {
-		panic("round-cycles must be positive, region-mb must be nonzero, and rekey-every/max-rounds cannot be negative")
+	if *roundCycles <= 0 || *rekeyEvery < 0 || *maxRounds < 0 || *regionMB == 0 || *repeatFlag < 1 {
+		panic("round-cycles, region-mb and repeat must be positive; rekey-every and max-rounds cannot be negative")
 	}
 
 	r := new(runner.Runner).ParseFlag().Init()
@@ -131,6 +133,7 @@ func main() {
 	if !*idleFlag {
 		victim := matrixmultiplication.NewBenchmark(r.Driver())
 		victim.X, victim.Y, victim.Z = uint32(*xFlag), uint32(*yFlag), uint32(*zFlag)
+		victim.Repeat = *repeatFlag
 		victim.SelectGPU([]int{1})
 		r.AddBenchmarkWithoutSettingGPUsToUse(victim)
 	}
@@ -357,6 +360,7 @@ func writeOutputs(prefix string, rec *recorder, simTime float64) {
 		Idle:            *idleFlag,
 		Seed:            *seedFlag,
 		RoundCycles:     *roundCycles,
+		Repeat:          *repeatFlag,
 		Capped:          rec.capped,
 		// Every victim fill must land in exactly one separate accounting row unless capped.
 		AccountingMatch: rec.capped || victimFillTotal == sum(l2.FillsByPIDSet[rec.victimPID]),

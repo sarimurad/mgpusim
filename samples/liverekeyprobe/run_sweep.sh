@@ -7,7 +7,8 @@ cd "$here"
 
 X="${X:-1024}" Y="${Y:-1024}" Z="${Z:-1024}"
 ROUND_CYCLES="${ROUND_CYCLES:-177984}"
-REPEAT="${REPEAT:-8}"
+REPEAT="${REPEAT:-1}"
+KREPEAT="${KREPEAT:-8}"
 JOBS="${JOBS:-4}"
 RESULTS="${RESULTS:-$here/../../../results/live-rekey-probe}"
 RUNS="${RUNS:-$RESULTS/runs}"
@@ -15,7 +16,7 @@ OUT="${OUT:-$RESULTS/analysis}"
 mkdir -p "$RUNS" "$OUT"
 
 go build -o liverekeyprobe . || { echo "build failed"; exit 1; }
-common=(-timing -x="$X" -y="$Y" -z="$Z" -round-cycles="$ROUND_CYCLES" -seed=1234)
+common=(-timing -x="$X" -y="$Y" -z="$Z" -repeat="$KREPEAT" -round-cycles="$ROUND_CYCLES" -seed=1234)
 pids=()
 
 run_one() {

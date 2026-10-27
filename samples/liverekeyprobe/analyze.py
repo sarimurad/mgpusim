@@ -40,6 +40,7 @@ def main():
     per_run = []
     matrices = {}
     epoch_tables = {}
+    summaries = {}
     failures = []
     for summary_path in sorted(args.runs_dir.glob("*_summary.json")):
         prefix = summary_path.with_name(summary_path.name.removesuffix("_summary.json"))
@@ -53,6 +54,7 @@ def main():
         matrix, epochs, summary = loaded
         matrices[name] = matrix
         epoch_tables[name] = epochs
+        summaries[name] = summary
         checks = {
             "shape_256": matrix.shape[1] == 256,
             "values_0_to_8": bool(matrix.size == 0 or (matrix.min() >= 0 and matrix.max() <= 8)),
@@ -119,6 +121,41 @@ def main():
         if not deterministic:
             failures.append(f"{','.join(names)}: repeated CSVs differ")
 
+    # --- Table 7.4 comparison: attacker "recoverable" contention ---------------
+    static_names = [n for n in matrices if n.startswith("static_")]
+    recover_rows = []
+    if static_names:
+        s_stack = np.mean([matrices[n].sum(axis=0) for n in static_names], axis=0)
+        F0 = s_stack > 0
+        ref_list = [matrices[n][:, F0].sum() / max(1, int(summaries[n]["active_rounds"]))
+                    for n in static_names]
+        ref = float(np.mean(ref_list)) if ref_list else 0.0
+        for item in per_run:
+            name = item["run"]
+            if name.startswith("idle_"):
+                continue
+            m = matrices[name]
+            ar = max(1, int(item["active_rounds"]))
+            recov = m[:, F0].sum() / ar
+            R = int(item["rotations"])
+            recover_rows.append({
+                "run": name, "rekey_every": item["rekey_every"], "rotations": R,
+                "recoverable_per_round": recov,
+                "recoverable_share": (recov / ref) if ref else np.nan,
+                "model_1_over_Rp1": 1.0 / (R + 1),
+                "model_with_floor": 1.0 / (R + 1) + (R / (R + 1)) * (int(F0.sum()) / 256.0),
+            })
+    recover = pd.DataFrame(recover_rows)
+    rec_grp = pd.DataFrame()
+    if not recover.empty:
+        recover = recover.sort_values(["rekey_every", "run"])
+        recover.to_csv(args.output_dir / "liverekeyprobe_recoverable.csv", index=False)
+        rec_grp = recover[recover.rekey_every > 0].groupby("rekey_every", as_index=False).agg(
+            rotations=("rotations", "first"),
+            recoverable_share=("recoverable_share", "mean"),
+            model_1_over_Rp1=("model_1_over_Rp1", "first"),
+            model_with_floor=("model_with_floor", "first"))
+
     if not per_run:
         raise SystemExit("No complete run summaries found")
     runs = pd.DataFrame(per_run).sort_values(["rekey_every", "run"])
@@ -148,6 +185,13 @@ def main():
         "",
         runs[["run", "deterministic_repeat", "all_checks_pass"]].to_string(index=False),
     ]
+    if not rec_grp.empty:
+        lines += ["", "## Attacker-recoverable contention vs Table 7.4", "",
+                  "recoverable_share = mean per-round attacker probe contention inside the",
+                  "static footprint F0, as a fraction of the static run -- the attacker",
+                  "counterpart of Table 7.4's Recoverable column (model raw/(R+1), plus a",
+                  "chance-overlap floor |F0|/256).", "",
+                  rec_grp.to_string(index=False, float_format=lambda x: f"{x:.4f}")]
     if failures:
         lines += ["", "## Failed checks", "", *[f"- {item}" for item in failures]]
     (args.output_dir / "liverekeyprobe_results.md").write_text("\n".join(lines) + "\n")
@@ -161,6 +205,18 @@ def main():
     ax.set_title("Attacker-view contention under live re-keying")
     fig.tight_layout()
     fig.savefig(args.output_dir / "liverekeyprobe_contention.png", dpi=160)
+
+    if not rec_grp.empty:
+        fig2, ax2 = plt.subplots(figsize=(7.8, 4.8))
+        ax2.plot(rec_grp.rekey_every, rec_grp.recoverable_share, "o-", label="Measured (attacker probe)")
+        ax2.plot(rec_grp.rekey_every, rec_grp.model_1_over_Rp1, "s--", label="Table 7.4  1/(R+1)")
+        ax2.plot(rec_grp.rekey_every, rec_grp.model_with_floor, "^:", label="With chance floor")
+        ax2.set_xscale("log", base=2)
+        ax2.set_xlabel("Re-key period k (rounds)")
+        ax2.set_ylabel("Recoverable share vs static")
+        ax2.set_title("Attacker-recoverable contention vs Table 7.4")
+        ax2.legend(); fig2.tight_layout()
+        fig2.savefig(args.output_dir / "liverekeyprobe_vs_table74.png", dpi=160)
     print(grouped.to_string(index=False))
     print(f"checks: {sum(r['all_checks_pass'] for r in per_run)}/{len(per_run)} runs pass; failures: {failures or 'none'}")
 

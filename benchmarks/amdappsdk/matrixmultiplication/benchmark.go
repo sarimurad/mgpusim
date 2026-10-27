@@ -19,6 +19,10 @@ type Benchmark struct {
 	X, Y, Z                   uint32
 	MatrixA, MatrixB, MatrixC *Matrix
 	useUnifiedMemory          bool
+
+	// Repeat is passed to the GPU multiplier: the kernel runs Repeat times on
+	// the same buffers. 0 or 1 is the original single launch.
+	Repeat int
 }
 
 // NewBenchmark makes a new benchmark
@@ -70,6 +74,7 @@ func (b *Benchmark) exec() {
 	m := NewGPUMatrixMultiplier(b.driver, b.context)
 	m.SelectGPU(b.gpus)
 	m.useUnifiedMemory = b.useUnifiedMemory
+	m.Repeat = b.Repeat
 	b.MatrixC = m.Multiply(b.MatrixA, b.MatrixB)
 }
 
